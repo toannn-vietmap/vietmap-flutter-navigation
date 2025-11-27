@@ -343,9 +343,16 @@ public class FlutterMapNavigationView : NavigationFactory, FlutterPlatformView
         guard let oWayPoints = arguments?["wayPoints"] as? NSDictionary else {return}
         guard let profile = arguments?["profile"] as? String else {return}
         
-        for item in oWayPoints as NSDictionary
+        let sortedWayPoints = oWayPoints.allValues.compactMap{ $0 as? NSDictionary }
+            .sorted { (dict1,dict2) in
+                let order1 = dict1["Order"] as? Int ?? Int.max
+                let order2 = dict2["Order"] as? Int ?? Int.max
+                return order1 < order2
+            }
+        
+        for point in sortedWayPoints
         {
-            let point = item.value as! NSDictionary
+            //            let point = item.value as! NSDictionary
             guard point["Name"] is String else {return }
             guard let oLatitude = point["Latitude"] as? Double else {return}
             guard let oLongitude = point["Longitude"] as? Double else {return}
