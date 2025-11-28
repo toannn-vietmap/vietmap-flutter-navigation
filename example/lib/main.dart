@@ -1,6 +1,11 @@
 import 'dart:developer';
 import 'dart:math' hide log;
 
+import 'package:demo_plugin_example/components/custom_floating_action_button.dart';
+import 'package:demo_plugin_example/components/recenter_button.dart';
+import 'package:demo_plugin_example/components/reoder_waypoint_widget.dart';
+import 'package:demo_plugin_example/components/route_control_buttons.dart';
+import 'package:demo_plugin_example/core/map_action.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
@@ -39,24 +44,30 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
   late MapOptions _navigationOption;
   final _vietmapNavigationPlugin = VietMapNavigationPlugin();
 
-  List<LatLng> waypoints = [
-    const LatLng(10.759091, 106.675817),
-    const LatLng(10.762528, 106.653099)
-  ];
+  List<LatLng> waypoints = [];
   Widget instructionImage = const SizedBox.shrink();
   String guideDirection = "";
   Widget recenterButton = const SizedBox.shrink();
   RouteProgressEvent? routeProgressEvent;
   bool _isRouteBuilt = false;
   bool _isRunning = false;
+  bool isEdittingWaypoints = false;
   FocusNode focusNode = FocusNode();
+  MapAction? currentAction;
+  LatLng? userLocation = const LatLng(10.759084389388574, 106.67596449603656);
   @override
   void initState() {
     super.initState();
 
     initialize();
     WidgetsBinding.instance.addPostFrameCallback((timeStamp) async {
-      Geolocator.requestPermission();
+      var permissionLocation = await Geolocator.requestPermission();
+      if (permissionLocation != LocationPermission.denied &&
+          permissionLocation != LocationPermission.deniedForever) {
+        var positionLocation = await Geolocator.getCurrentPosition();
+        userLocation =
+            LatLng(positionLocation.latitude, positionLocation.longitude);
+      }
     });
   }
 
@@ -66,11 +77,30 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
     _navigationOption = _vietmapNavigationPlugin.getDefaultOptions();
     _navigationOption.simulateRoute = false;
 
-    _navigationOption.apiKey = 'YOUR_API_KEY_HERE';
+    _navigationOption.apiKey =
+        'YOUR_API_KEY_HERE';
     _navigationOption.mapStyle =
         "https://maps.vietmap.vn/api/maps/light/styles.json?apikey=YOUR_API_KEY_HERE";
 
     _vietmapNavigationPlugin.setDefaultOptions(_navigationOption);
+  }
+
+  Future<void> resetActions() async {
+    switch (currentAction) {
+      case MapAction.removeAllMarkers:
+        await _controller?.removeAllMarkers();
+        break;
+      case MapAction.buildRoute:
+        await _controller?.clearRoute();
+        waypoints.clear();
+        setState(() {
+          _isRouteBuilt = false;
+          isEdittingWaypoints = false;
+        });
+        break;
+      default:
+        break;
+    }
   }
 
   MapOptions? options;
@@ -78,46 +108,48 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
+      floatingActionButton: FloatingActionButtonGroup(
+        buttons: [
+          CustomFloatingActionButton(
             onPressed: () {
-              _controller?.buildRoute(waypoints: [
-                const LatLng(10.759091, 106.675817),
-                const LatLng(10.762528, 106.653099),
-                const LatLng(11.762528, 107.653099),
-              ]);
+              if (waypoints.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text(
+                        'Vui lòng thêm điểm dừng để xây dựng tuyến đường')));
+                return;
+              }
+              _controller?.buildRoute(waypoints: [userLocation!, ...waypoints]);
+              currentAction = MapAction.buildRoute;
             },
-            child: const Icon(Icons.animation),
+            icon: Icons.route_outlined,
+            heroTag: "build_route",
+            backgroundColor: const Color(0xFF2196F3),
+            tooltip: 'Xây dựng tuyến đường',
           ),
-          FloatingActionButton(
-            onPressed: () {
-              _controller?.moveCamera(
-                  latLng: const LatLng(22.762528, 106.653099),
-                  zoom: 8,
-                  tilt: 0,
-                  bearing: 0);
-            },
-            child: const Icon(Icons.animation),
-          ),
-          // AbsorbPointer()
-          FloatingActionButton(
+          CustomFloatingActionButton(
             onPressed: () async {
-              await _controller?.addImageMarkers([
-                NavigationMarker(
-                    width: 120,
-                    height: 120,
-                    imagePath: 'assets/50.png',
-                    latLng: const LatLng(10.762528, 106.653099)),
-                NavigationMarker(
-                    imagePath: 'assets/40.png',
-                    latLng: const LatLng(10.762528, 106.753099),
-                    width: 80,
-                    height: 80),
-              ]);
+              await resetActions();
             },
-            child: const Icon(Icons.animation),
+            icon: Icons.clear_all_outlined,
+            heroTag: "clear_all",
+            backgroundColor: const Color(0xFFF44336),
+            tooltip: 'Xóa tất cả',
+          ),
+          CustomFloatingActionButton(
+            onPressed: () async {
+              await Geolocator.getCurrentPosition().then((position) {
+                _controller?.moveCamera(
+                  latLng: LatLng(position.latitude, position.longitude),
+                  zoom: 15,
+                  tilt: 0,
+                  bearing: 0,
+                );
+              });
+            },
+            icon: Icons.my_location,
+            heroTag: "my_location",
+            backgroundColor: Colors.green,
+            tooltip: 'Vị trí',
           ),
         ],
       ),
@@ -190,7 +222,9 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                       content:
                           Text('Không tìm thấy địa điểm gần vị trí bạn chọn')));
-                }, (r) => _showBottomSheetInfo(r));
+                }, (r) {
+                  _showBottomSheetInfo(r);
+                });
               },
               onRouteProgressChange: (RouteProgressEvent routeProgressEvent) {
                 // print('-----------ProgressChange----------');
@@ -235,72 +269,92 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
                 ? const SizedBox.shrink()
                 : Positioned(
                     top: MediaQuery.of(context).viewPadding.top + 20,
-                    child: FloatingSearchBar(
-                      focusNode: focusNode,
-                      onSearchItemClick: (p0) async {
-                        EasyLoading.show();
-                        VietmapPlaceModel? data;
-                        var res = await GetPlaceDetailUseCase(
-                                VietmapApiRepositories())
-                            .call(p0.refId ?? '');
-                        res.fold((l) {
-                          EasyLoading.dismiss();
-                          return;
-                        }, (r) {
-                          data = r;
-                        });
-                        waypoints.clear();
-                        var location = await Geolocator.getCurrentPosition();
-                        waypoints
-                            .add(LatLng(location.latitude, location.longitude));
-                        if (data?.lat != null) {
-                          waypoints.add(LatLng(data?.lat ?? 0, data?.lng ?? 0));
-                        }
-                        _controller?.buildRoute(waypoints: waypoints);
-                      },
-                    )),
-            _isRouteBuilt && !_isRunning
-                ? Positioned(
-                    bottom: 20,
-                    left: 0,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          ElevatedButton(
-                              style: ButtonStyle(
-                                  shape: WidgetStateProperty.all<
-                                          RoundedRectangleBorder>(
-                                      RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(18.0),
-                                          side: const BorderSide(
-                                              color: Colors.blue)))),
-                              onPressed: () {
-                                _isRunning = true;
-                                _controller?.startNavigation();
+                    child: isEdittingWaypoints
+                        ? SizedBox(
+                            width: MediaQuery.of(context).size.width,
+                            height: 300,
+                            child: ReoderWaypointWidget(
+                              waypoints: waypoints,
+                              onWaypointsChanged: (newWaypoints) {
+                                waypoints = newWaypoints;
+                                _controller?.buildRoute(waypoints: waypoints);
                               },
-                              child: const Text('Bắt đầu')),
-                          ElevatedButton(
-                              style: ButtonStyle(
-                                  shape: WidgetStateProperty.all<
-                                          RoundedRectangleBorder>(
-                                      RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(18.0),
-                                          side: const BorderSide(
-                                              color: Colors.blue)))),
-                              onPressed: () {
-                                _controller?.clearRoute();
+                              onBack: () {
                                 setState(() {
-                                  _isRouteBuilt = false;
+                                  isEdittingWaypoints = false;
                                 });
                               },
-                              child: const Text('Xoá tuyến đường')),
-                        ],
-                      ),
+                              onWaypointDelete: (p0) {
+                                setState(() {
+                                  waypoints.removeAt(p0);
+                                });
+                                _controller?.buildRoute(waypoints: waypoints);
+                              },
+                              onWaypointTap: (p0) {
+                                _controller?.moveCamera(
+                                  latLng: waypoints[p0],
+                                  zoom: 1,
+                                  tilt: 0,
+                                  bearing: 0,
+                                );
+                              },
+                            ),
+                          )
+                        : FloatingSearchBar(
+                            focusNode: focusNode,
+                            onSearchItemClick: (p0) async {
+                              EasyLoading.show();
+                              VietmapPlaceModel? data;
+                              var res = await GetPlaceDetailUseCase(
+                                      VietmapApiRepositories())
+                                  .call(p0.refId ?? '');
+                              res.fold((l) {
+                                EasyLoading.dismiss();
+                                return;
+                              }, (r) {
+                                data = r;
+                              });
+                              waypoints.clear();
+                              var location =
+                                  await Geolocator.getCurrentPosition();
+                              waypoints.add(LatLng(
+                                  location.latitude, location.longitude));
+                              if (data?.lat != null) {
+                                waypoints.add(
+                                    LatLng(data?.lat ?? 0, data?.lng ?? 0));
+                              }
+                              _controller?.buildRoute(waypoints: waypoints);
+                            },
+                          )),
+            _isRouteBuilt && !_isRunning
+                ? Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: RouteControlButtons(
+                      onStartNavigation: () {
+                        setState(() {
+                          _isRunning = true;
+                        });
+                        _controller?.startNavigation();
+                      },
+                      onClearRoute: () {
+                        _controller?.clearRoute();
+                        waypoints.clear();
+                        setState(() {
+                          _isRouteBuilt = false;
+                          isEdittingWaypoints = false;
+                        });
+                      },
+                      onEditWaypoints: () {
+                        var tempWaypoints = List<LatLng>.from(waypoints);
+                        waypoints.clear();
+                        waypoints.add(userLocation!);
+                        waypoints.addAll(tempWaypoints);
+                        setState(() {
+                          isEdittingWaypoints = !isEdittingWaypoints;
+                        });
+                      },
                     ),
                   )
                 : const SizedBox.shrink(),
@@ -311,34 +365,16 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
   }
 
   _showRecenterButton() {
-    recenterButton = TextButton(
+    setState(() {
+      recenterButton = RecenterButton(
         onPressed: () {
           _controller?.recenter();
           setState(() {
             recenterButton = const SizedBox.shrink();
           });
         },
-        child: Container(
-            height: 50,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(50),
-                color: Colors.white,
-                border: Border.all(color: Colors.black45, width: 1)),
-            child: const Row(
-              children: [
-                Icon(
-                  Icons.keyboard_double_arrow_up_sharp,
-                  color: Colors.lightBlue,
-                  size: 35,
-                ),
-                Text(
-                  'Về giữa',
-                  style: TextStyle(fontSize: 18, color: Colors.lightBlue),
-                )
-              ],
-            )));
-    setState(() {});
+      );
+    });
   }
 
   _setInstructionImage(String? modifier, String? type) {
@@ -367,31 +403,54 @@ class _VietMapNavigationScreenState extends State<VietMapNavigationScreen> {
         context: context,
         builder: (_) => AddressInfo(
               data: data,
+              addWaypoint: () async {
+                waypoints.add(LatLng(
+                    data.lat?.toDouble() ?? 0, data.lng?.toDouble() ?? 0));
+                await _controller!.addImageMarkers([
+                  NavigationMarker(
+                      width: 40,
+                      height: 40,
+                      imagePath: 'assets/location.png',
+                      latLng: LatLng(
+                          data.lat?.toDouble() ?? 0, data.lng?.toDouble() ?? 0))
+                ]);
+                if (!mounted) return;
+                Navigator.pop(context);
+              },
+              removeAllMarkers: () {
+                _controller?.removeAllMarkers();
+                _controller?.clearRoute();
+                waypoints.clear();
+                if (!mounted) return;
+                Navigator.pop(context);
+              },
               buildRoute: () async {
                 EasyLoading.show();
-                waypoints.clear();
-                var location = await Geolocator.getCurrentPosition();
-
-                waypoints.add(LatLng(location.latitude, location.longitude));
-                if (data.lat != null) {
-                  waypoints.add(LatLng(
-                      data.lat?.toDouble() ?? 0, data.lng?.toDouble() ?? 0));
+                if (waypoints.isEmpty) {
+                  Navigator.pop(context);
+                  EasyLoading.dismiss();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'Vui lòng thêm điểm dừng để xây dựng tuyến đường')));
+                  return;
                 }
-                _controller?.buildRoute(waypoints: waypoints);
+                _controller
+                    ?.buildRoute(waypoints: [userLocation!, ...waypoints]);
                 if (!mounted) return;
                 Navigator.pop(context);
               },
               buildAndStartRoute: () async {
                 EasyLoading.show();
-                waypoints.clear();
-                var location = await Geolocator.getCurrentPosition();
-                waypoints.add(LatLng(location.latitude, location.longitude));
-                if (data.lat != null) {
-                  waypoints.add(LatLng(
-                      data.lat?.toDouble() ?? 0, data.lng?.toDouble() ?? 0));
+                if (waypoints.isEmpty) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'Vui lòng thêm điểm dừng để xây dựng tuyến đường')));
+                  return;
                 }
+
                 _controller?.buildAndStartNavigation(
-                    waypoints: waypoints,
+                    waypoints: [userLocation!, ...waypoints],
                     profile: DrivingProfile.drivingTraffic);
                 setState(() {
                   _isRunning = true;
