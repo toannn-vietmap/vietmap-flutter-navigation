@@ -55,7 +55,8 @@ class FloatingSearchBar extends StatelessWidget {
             child: InkWell(
               onTap: () => onSearchItemClick(suggestion),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   border: Border(

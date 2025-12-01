@@ -1,7 +1,6 @@
 import 'package:demo_plugin_example/core/extension/color_extension.dart';
 import 'package:flutter/material.dart';
 
-
 class RouteControlButtons extends StatelessWidget {
   final VoidCallback onStartNavigation;
   final VoidCallback onClearRoute;
@@ -161,7 +160,7 @@ class SecondaryButton extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
-          filter: 
+          filter:
               const ColorFilter.mode(Colors.transparent, BlendMode.multiply),
           child: Material(
             color: Colors.white.withOpacityCustom(0.9),
