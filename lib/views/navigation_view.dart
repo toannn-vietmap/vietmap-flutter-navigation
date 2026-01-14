@@ -205,8 +205,10 @@ class _NavigationViewState extends State<NavigationView> {
       case MapEvent.userOffRoute:
         if (widget.userOffRoute != null) {
           if (e.data != null) {
-            var data = jsonDecode(e.data);
-            LatLng latLng = LatLng(data['latitude'], data['longitude']);
+            var data = decodeJson(data: e.data);
+            var latitude = (data["latitude"] as num).toDouble();
+            var longitude = (data["longitude"] as num).toDouble();
+            LatLng latLng = LatLng(latitude,longitude);
             widget.userOffRoute!(latLng);
           }
         }
