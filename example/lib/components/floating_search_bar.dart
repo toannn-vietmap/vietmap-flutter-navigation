@@ -50,19 +50,111 @@ class FloatingSearchBar extends StatelessWidget {
           return <VietmapAutocompleteModel>[];
         },
         itemBuilder: (context, VietmapAutocompleteModel suggestion) {
-          return ListTile(
-            leading: const Icon(Icons.location_on),
-            contentPadding: EdgeInsets.zero,
-            title: Text(suggestion.name ?? ''),
-            subtitle: Text(suggestion.address ?? ''),
+          return Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onSearchItemClick(suggestion),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(
+                      color: Colors.grey.shade100,
+                      width: 0.5,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF4285F4).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.location_on_rounded,
+                        color: Color(0xFF4285F4),
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            suggestion.name ?? '',
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF202124),
+                              letterSpacing: -0.2,
+                              height: 1.4,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            suggestion.address ?? '',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF5F6368),
+                              height: 1.4,
+                              letterSpacing: -0.1,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(
+                      Icons.north_west,
+                      size: 16,
+                      color: Color(0xFF9AA0A6),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           );
         },
         noItemsFoundBuilder: (context) {
-          return const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Text(
-              'Không tìm thấy địa chỉ này.',
-              style: TextStyle(fontSize: 17),
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.search_off_rounded,
+                  size: 48,
+                  color: Colors.grey.shade300,
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Không tìm thấy địa chỉ',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF202124),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Vui lòng thử lại với từ khóa khác',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           );
         },
